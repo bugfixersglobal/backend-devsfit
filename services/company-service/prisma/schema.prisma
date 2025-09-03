@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+}
+
+// Models
+model Company {
+  id              String        @id @default(uuid()) @db.Uuid
+  name            String        @db.VarChar(255)
+  slug            String        @unique @db.VarChar(100)
+  description     String?
+  logo            String?
+  website         String?
+  email           String?       @db.VarChar(255)
+  phone           String?       @db.VarChar(20)
+  address         String?
+  city            String?       @db.VarChar(100)
+  state           String?       @db.VarChar(100)
+  country         String?       @db.VarChar(100)
+  postalCode      String?       @map("postal_code") @db.VarChar(20)
+  taxId           String?       @map("tax_id") @db.VarChar(50)
+  licenseNumber   String?       @map("license_number") @db.VarChar(100)
+  foundedDate     DateTime?     @map("founded_date")
+  status          CompanyStatus @default(ACTIVE)
+  settings        Json?         // Company-specific settings
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  branches        Branch[]
+  subscriptions   CompanySubscription[]
+
+  @@map("companies")
+  @@index([slug])
+  @@index([status])
+}
+
+model Branch {
+  id              String       @id @default(uuid()) @db.Uuid
+  companyId       String       @map("company_id") @db.Uuid
+  name            String       @db.VarChar(255)
+  slug            String       @db.VarChar(100)
+  description     String?
+  address         String
+  city            String       @db.VarChar(100)
+  state           String       @db.VarChar(100)
+  country         String       @db.VarChar(100)
+  postalCode      String       @map("postal_code") @db.VarChar(20)
+  phone           String?      @db.VarChar(20)
+  email           String?      @db.VarChar(255)
+  managerId       String?      @map("manager_id") @db.Uuid // Reference to user service
+  latitude        Float?
+  longitude       Float?
+  timezone        String?      @db.VarChar(50)
+  operatingHours  Json?        @map("operating_hours") // Store as JSON
+  capacity        Int?
+  area            Float?       // in square meters
+  amenities       String[]     // Array of amenities
+  images          String[]     // Array of image URLs
+  status          BranchStatus @default(ACTIVE)
+  openingDate     DateTime?    @map("opening_date")
+  settings        Json?        // Branch-specific settings
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  staff           BranchStaff[]
+  equipment       Equipment[]
+
+  @@unique([companyId, slug])
+  @@map("branches")
+  @@index([companyId])
+  @@index([status])
+  @@index([managerId])
+}
+
+model BranchStaff {
+  id          String    @id @default(uuid()) @db.Uuid
+  branchId    String    @map("branch_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid // Reference to auth service user
+  position    String    @db.VarChar(100)
+  department  String?   @db.VarChar(100)
+  salary      Float?
+  hourlyRate  Float?    @map("hourly_rate")
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime? @map("end_date")
+  isActive    Boolean   @default(true) @map("is_active")
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, userId])
+  @@map("branch_staff")
+  @@index([branchId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Equipment {
+  id                String    @id @default(uuid()) @db.Uuid
+  branchId          String    @map("branch_id") @db.Uuid
+  name              String    @db.VarChar(255)
+  category          String    @db.VarChar(100)
+  brand             String?   @db.VarChar(100)
+  model             String?   @db.VarChar(100)
+  serialNumber      String?   @map("serial_number") @db.VarChar(100)
+  purchaseDate      DateTime? @map("purchase_date")
+  purchasePrice     Float?    @map("purchase_price")
+  warrantyExpiry    DateTime? @map("warranty_expiry")
+  lastMaintenance   DateTime? @map("last_maintenance")
+  nextMaintenance   DateTime? @map("next_maintenance")
+  maintenanceNotes  String?   @map("maintenance_notes")
+  condition         String?   @db.VarChar(50) // excellent, good, fair, poor
+  isActive          Boolean   @default(true) @map("is_active")
+  location          String?   // Location within the branch
+  images            String[]  // Array of image URLs
+  manualUrl         String?   @map("manual_url")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  branch            Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("equipment")
+  @@index([branchId])
+  @@index([category])
+  @@index([isActive])
+}
+
+model CompanySubscription {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  planName        String    @map("plan_name") @db.VarChar(100)
+  planType        String    @map("plan_type") @db.VarChar(50) // basic, premium, enterprise
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime  @map("end_date")
+  isActive        Boolean   @default(true) @map("is_active")
+  maxBranches     Int       @map("max_branches")
+  maxMembers      Int       @map("max_members")
+  maxStaff        Int       @map("max_staff")
+  features        String[]  // Array of enabled features
+  monthlyPrice    Float     @map("monthly_price")
+  yearlyPrice     Float?    @map("yearly_price")
+  billingCycle    String    @map("billing_cycle") @db.VarChar(20) // monthly, yearly
+  autoRenew       Boolean   @default(true) @map("auto_renew")
+  trialEndDate    DateTime? @map("trial_end_date")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_subscriptions")
+  @@index([companyId])
+  @@index([isActive])
+  @@index([endDate])
+} 

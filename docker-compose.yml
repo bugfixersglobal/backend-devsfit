@@ -1,0 +1,736 @@
+services:
+  # ===================
+  # INFRASTRUCTURE SERVICES
+  # ===================
+  
+  # PostgreSQL - Latest version with optimizations
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-auth
+    environment:
+      POSTGRES_DB: devsfit_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+      - ./infrastructure/databases/postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    restart: unless-stopped
+
+  postgres-user:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-user
+    environment:
+      POSTGRES_DB: devsfit_user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  postgres-package:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-package
+    environment:
+      POSTGRES_DB: devsfit_package
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-package-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_package"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  postgres-billing:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-billing
+    environment:
+      POSTGRES_DB: devsfit_billing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-billing-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_billing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  postgres-onboarding:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-onboarding
+    environment:
+      POSTGRES_DB: devsfit_onboarding
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-onboarding-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_onboarding"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  postgres-payment:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-payment
+    environment:
+      POSTGRES_DB: devsfit_payment
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-payment-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_payment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  postgres-company:
+    image: postgres:16-alpine
+    container_name: devsfit-postgres-company
+    environment:
+      POSTGRES_DB: devsfit_company
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres-company-data:/var/lib/postgresql/data
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsfit_company"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+
+
+  # Redis - Latest version with optimizations
+  redis:
+    image: redis:7-alpine
+    container_name: devsfit-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  redis-sessions:
+    image: redis:7-alpine
+    container_name: devsfit-redis-sessions
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-sessions-data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    restart: unless-stopped
+
+  # RabbitMQ - Latest version
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: devsfit-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  # Elasticsearch - Latest version
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: devsfit-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    restart: unless-stopped
+
+  # ===================
+  # MICROSERVICES
+  # ===================
+  
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq:5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-auth-service
+    ports:
+      - "3020:3020"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@postgres-auth:5432/devsfit_auth
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=0
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_REFRESH_SECRET=your-super-secret-jwt-refresh-key-change-in-production
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  package-service:
+    build:
+      context: ./services/package-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-package-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - DATABASE_URL=postgresql://postgres:password@postgres-package:5432/devsfit_package
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - INTERNAL_SERVICE_TOKEN=your-internal-service-secret-token-change-this
+      - ALLOWED_INTERNAL_SERVICES=admin-service,api-gateway
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+    depends_on:
+      postgres-package:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  billing-service:
+    build:
+      context: ./services/billing-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-billing-service
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DATABASE_URL=postgresql://postgres:password@postgres-billing:5432/devsfit_billing
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=2
+      - INTERNAL_SERVICE_TOKEN=your-internal-service-secret-token-change-this
+      - ALLOWED_INTERNAL_SERVICES=admin-service,api-gateway,package-service,payment-service,subscription-service
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - PACKAGE_SERVICE_URL=http://package-service:3003
+      - PAYMENT_SERVICE_URL=http://payment-service:3005
+      - SUBSCRIPTION_SERVICE_URL=http://subscription-service:3006
+      - PROMETHEUS_PORT=9465
+      - TRACING_ENABLED=true
+      - METRICS_ENABLED=true
+    depends_on:
+      postgres-billing:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  onboarding-service:
+    build:
+      context: ./services/onboarding-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-onboarding-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - DATABASE_URL=postgresql://postgres:password@postgres-onboarding:5432/devsfit_onboarding
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=3
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - JWT_EXPIRES_IN=24h
+      - INTERNAL_SERVICE_TOKEN=your-internal-service-secret-token-change-this
+      - ALLOWED_INTERNAL_SERVICES=admin-service,api-gateway,package-service,billing-service,payment-service
+      - PACKAGE_SERVICE_URL=http://package-service:3003/api/v1
+      - COMPANY_SERVICE_URL=http://company-service:3030/api/v1
+      - USER_SERVICE_URL=http://user-service:3002/api/v1
+      - SUBSCRIPTION_SERVICE_URL=http://subscription-service:3006/api/v1
+      - BILLING_SERVICE_URL=http://billing-service:3004/api/v1
+      - PAYMENT_SERVICE_URL=http://payment-service:3005/api/v1
+      - SSLCOMMERZ_STORE_ID=testbox
+      - SSLCOMMERZ_STORE_PASSWORD=qwerty
+      - SSLCOMMERZ_SANDBOX=true
+      - SSLCOMMERZ_TIMEOUT=30000
+      - SSLCOMMERZ_MAX_RETRIES=3
+      - LOG_LEVEL=info
+      - RATE_LIMIT_TTL=60000
+      - RATE_LIMIT_MAX=100
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+      - PROMETHEUS_PORT=9097
+      - TRACING_ENABLED=true
+      - METRICS_ENABLED=true
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - OPENSSL_CONF=/dev/null
+      - PRISMA_SKIP_POSTINSTALL_GENERATE=true
+    depends_on:
+      postgres-onboarding:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-payment-service
+    ports:
+      - "3005:3005"
+      - "9465:9465"  # Prometheus metrics
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - DATABASE_URL=postgresql://postgres:password@postgres-payment:5432/devsfit_payment
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=4
+      - JWT_SECRET=your-super-secret-jwt-key-for-payment-service
+      - JWT_REFRESH_SECRET=your-jwt-refresh-secret-for-payment-service
+      - JWT_EXPIRES_IN=24h
+      - SSLCOMMERZ_STORE_ID=test_store_id
+      - SSLCOMMERZ_STORE_PASSWORD=test_store_password
+      - SSLCOMMERZ_SANDBOX=true
+      - SSLCOMMERZ_TIMEOUT=30000
+      - SSLCOMMERZ_MAX_RETRIES=3
+      - APP_BASE_URL=http://localhost:5000
+      - JAEGER_ENDPOINT=http://jaeger:4318/v1/traces
+      - INTERNAL_SERVICE_TOKEN=your-internal-service-secret-token-change-this
+      - ALLOWED_INTERNAL_SERVICES=admin-service,api-gateway,billing-service,subscription-service
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - OPENSSL_CONF=/dev/null
+      - PRISMA_SKIP_POSTINSTALL_GENERATE=true
+      - SKIP_POSTINSTALL=true
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+  company-service:
+    build:
+      context: ./services/company-service
+      dockerfile: Dockerfile.dev
+    container_name: devsfit-company-service
+    ports:
+      - "3030:3030"
+    environment:
+      - NODE_ENV=development
+      - PORT=3030
+      - DATABASE_URL=postgresql://postgres:password@postgres-company:5432/devsfit_company
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - REDIS_DB=5
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - JWT_EXPIRES_IN=24h
+      - INTERNAL_SERVICE_TOKEN=your-internal-service-secret-token-change-this
+      - ALLOWED_INTERNAL_SERVICES=admin-service,api-gateway
+      - USER_SERVICE_URL=http://user-service:3002/api/v1
+      - PACKAGE_SERVICE_URL=http://package-service:3003/api/v1
+      - LOG_LEVEL=info
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - OPENSSL_CONF=/dev/null
+      - PRISMA_SKIP_POSTINSTALL_GENERATE=true
+    depends_on:
+      postgres-company:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    restart: unless-stopped
+
+
+
+  # ===================
+  # MONITORING
+  # ===================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: devsfit-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: devsfit-grafana
+    ports:
+      - "3013:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: devsfit-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - devsfit-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ===================
+  # DEVELOPMENT TOOLS
+  # ===================
+  
+  adminer:
+    image: adminer:4.8.1
+    container_name: devsfit-adminer
+    ports:
+      - "8081:8080"
+    networks:
+      - devsfit-network
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: devsfit-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - devsfit-network
+    restart: unless-stopped
+
+# ===================
+# VOLUMES
+# ===================
+
+volumes:
+  postgres-auth-data:
+    external: true
+    name: devsfit-backend_postgres-auth-data
+  postgres-user-data:
+    external: true
+    name: devsfit-backend_postgres-user-data
+  postgres-package-data:
+    external: true
+    name: devsfit-backend_postgres-package-data
+  postgres-billing-data:
+    external: true
+    name: devsfit-backend_postgres-billing-data
+  postgres-onboarding-data:
+    external: true
+    name: devsfit-backend_postgres-onboarding-data
+  postgres-payment-data:
+    external: true
+    name: devsfit-backend_postgres-payment-data
+
+  postgres-company-data:
+    external: true
+    name: devsfit-backend_postgres-company-data
+
+  redis-data:
+  redis-sessions-data:
+  rabbitmq-data:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:
+
+# ===================
+# NETWORKS
+# ===================
+
+networks:
+  devsfit-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

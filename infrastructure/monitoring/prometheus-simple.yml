@@ -1,0 +1,68 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Microservices
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'company-service'
+    static_configs:
+      - targets: ['company-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'package-service'
+    static_configs:
+      - targets: ['package-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'attendance-service'  
+    static_configs:
+      - targets: ['attendance-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+
+  - job_name: 'report-service'
+    static_configs:
+      - targets: ['report-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s
+
+  - job_name: 'file-service'
+    static_configs:
+      - targets: ['file-service:3000']
+    metrics_path: /api/v1/metrics
+    scrape_interval: 10s 

@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run linting
+echo "📝 Linting code..."
+npm run lint
+
+# Run type checking
+echo "🔧 Type checking..."
+npm run build
+
+# Run tests
+echo "🧪 Running tests..."
+npm run test
+
+# Check for sensitive data
+echo "🔒 Checking for sensitive data..."
+if grep -r "password\|secret\|key" --include="*.ts" --include="*.js" src/ | grep -v "// @ignore-sensitive"; then
+  echo "❌ Potential sensitive data found! Please review."
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed!" 

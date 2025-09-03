@@ -1,0 +1,19 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// API Gateway doesn't need any specific models, but we need a basic schema for Prisma client generation
+model HealthCheck {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  status    String
+  service   String
+}

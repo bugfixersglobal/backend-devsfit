@@ -1,0 +1,125 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Devsfit Microservices Overview",
+    "tags": ["devsfit", "microservices"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=~\".*-service\"}",
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate (req/sec)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=~\".*-service\"}[5m])",
+            "legendFormat": "{{job}} - {{method}} {{status_code}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time (95th percentile)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=~\".*-service\"}[5m]))",
+            "legendFormat": "{{job}} - p95"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Error Rate (%)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=~\".*-service\",status_code=~\"4..|5..\"}[5m]) / rate(http_requests_total{job=~\".*-service\"}[5m]) * 100",
+            "legendFormat": "{{job}} - Error Rate"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Database Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends{datname!=\"template0\"}",
+            "legendFormat": "{{datname}} - Connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Redis Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes / redis_memory_max_bytes * 100",
+            "legendFormat": "Redis Memory Usage %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Container CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=~\"devsfit-.*\"}[5m]) * 100",
+            "legendFormat": "{{name}} - CPU %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Container Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "container_memory_usage_bytes{name=~\"devsfit-.*\"} / container_spec_memory_limit_bytes{name=~\"devsfit-.*\"} * 100",
+            "legendFormat": "{{name}} - Memory %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      }
+    ]
+  }
+}

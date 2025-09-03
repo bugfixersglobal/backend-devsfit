@@ -1,0 +1,200 @@
+// 🚀 DEVSFIT PAYMENT SERVICE - Payment Processing Schema
+// This schema handles all payment processing, transactions, and refunds
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// PAYMENT ENUMS
+// ===================
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethodType {
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  DIGITAL_WALLET
+  MOBILE_PAYMENT
+}
+
+// ===================
+// PAYMENT RECORDS
+// ===================
+
+model Payment {
+  id                    String        @id @default(uuid()) @db.Uuid
+  transactionId         String        @unique @map("transaction_id") @db.VarChar(100)
+  companyId             String        @map("company_id") @db.Uuid
+  packageId             String?       @map("package_id") @db.Uuid
+  
+  // Payment Details
+  amount                Float
+  currency              String        @default("USD") @db.VarChar(10)
+  status                PaymentStatus @default(PENDING)
+  
+  // Payment Gateway Data
+  gatewayName           String        @default("SSLCOMMERZ") @map("gateway_name") @db.VarChar(50)
+  gatewayTransactionId  String?       @map("gateway_transaction_id") @db.VarChar(100)
+  validationId          String?       @map("validation_id") @db.VarChar(100)
+  bankTransactionId     String?       @map("bank_transaction_id") @db.VarChar(100)
+  
+  // Card Information
+  cardType              String?       @map("card_type") @db.VarChar(50)
+  cardBrand             String?       @map("card_brand") @db.VarChar(50)
+  cardIssuer            String?       @map("card_issuer") @db.VarChar(100)
+  cardLastFour          String?       @map("card_last_four") @db.VarChar(4)
+  
+  // Payment Data
+  paymentData           Json?         @map("payment_data") // Original payment request
+  verificationData      Json?         @map("verification_data") // Gateway verification response
+  
+  // Timestamps
+  paymentDate           DateTime?     @map("payment_date")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  refunds               Refund[]
+  
+  @@map("payments")
+  @@index([companyId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([paymentDate])
+}
+
+// ===================
+// REFUND RECORDS
+// ===================
+
+model Refund {
+  id                    String        @id @default(uuid()) @db.Uuid
+  transactionId         String        @map("transaction_id") @db.VarChar(100)
+  originalPaymentId     String        @map("original_payment_id") @db.Uuid
+  refundId              String        @unique @map("refund_id") @db.VarChar(100)
+  
+  // Refund Details
+  amount                Float
+  reason                String
+  status                RefundStatus  @default(PENDING)
+  
+  // Gateway Data
+  gatewayRefundId       String?       @map("gateway_refund_id") @db.VarChar(100)
+  refundData            Json?         @map("refund_data") // Original refund request
+  
+  // Timestamps
+  refundDate            DateTime      @default(now()) @map("refund_date")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  originalPayment       Payment       @relation(fields: [originalPaymentId], references: [id], onDelete: Cascade)
+  
+  @@map("refunds")
+  @@index([transactionId])
+  @@index([originalPaymentId])
+  @@index([status])
+  @@index([refundDate])
+}
+
+// ===================
+// PAYMENT METHODS
+// ===================
+
+model PaymentMethod {
+  id                    String        @id @default(uuid()) @db.Uuid
+  companyId             String        @map("company_id") @db.Uuid
+  methodType            PaymentMethodType
+  
+  // Method Details
+  name                  String        @db.VarChar(100)
+  isDefault             Boolean       @default(false) @map("is_default")
+  isActive              Boolean       @default(true) @map("is_active")
+  
+  // Encrypted Data
+  encryptedData         Json?         @map("encrypted_data") // Encrypted payment method data
+  
+  // Timestamps
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  @@map("payment_methods")
+  @@index([companyId])
+  @@index([methodType])
+  @@index([isDefault])
+}
+
+// ===================
+// PAYMENT ANALYTICS
+// ===================
+
+model PaymentAnalytics {
+  id                    String      @id @default(uuid()) @db.Uuid
+  companyId             String?     @map("company_id") @db.Uuid
+  date                  DateTime    @db.Date
+  
+  // Metrics
+  totalPayments         Int         @default(0) @map("total_payments")
+  completedPayments     Int         @default(0) @map("completed_payments")
+  failedPayments        Int         @default(0) @map("failed_payments")
+  totalAmount           Float       @default(0) @map("total_amount")
+  averageAmount         Float       @default(0) @map("average_amount")
+  
+  // Refund Metrics
+  totalRefunds          Int         @default(0) @map("total_refunds")
+  refundAmount          Float       @default(0) @map("refund_amount")
+  
+  // Success Rate
+  successRate           Float       @default(0) @map("success_rate")
+  
+  @@unique([companyId, date])
+  @@map("payment_analytics")
+  @@index([companyId])
+  @@index([date])
+}
+
+// ===================
+// PAYMENT WEBHOOKS
+// ===================
+
+model PaymentWebhook {
+  id                    String      @id @default(uuid()) @db.Uuid
+  transactionId         String      @map("transaction_id") @db.VarChar(100)
+  webhookType           String      @map("webhook_type") @db.VarChar(50)
+  
+  // Webhook Data
+  payload               Json         // Original webhook payload
+  processed             Boolean      @default(false)
+  processingError       String?      @map("processing_error")
+  
+  // Timestamps
+  receivedAt            DateTime     @default(now()) @map("received_at")
+  processedAt           DateTime?    @map("processed_at")
+
+  @@map("payment_webhooks")
+  @@index([transactionId])
+  @@index([webhookType])
+  @@index([processed])
+  @@index([receivedAt])
+} 

@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum AttendanceType {
+  GYM
+  CLASS
+  PERSONAL_TRAINING
+  SPORTS
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  MISSED
+  CANCELLED
+}
+
+enum CheckInMethod {
+  QR_CODE
+  RFID_CARD
+  BIOMETRIC
+  MANUAL_STAFF
+  MOBILE_APP
+}
+
+// Models
+model Attendance {
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @map("user_id") @db.Uuid // Reference to auth service user
+  companyId        String          @map("company_id") @db.Uuid // Reference to company service
+  branchId         String          @map("branch_id") @db.Uuid // Reference to company service
+  subscriptionId   String?         @map("subscription_id") @db.Uuid // Reference to package service
+  classId          String?         @map("class_id") @db.Uuid // Reference to class if applicable
+  trainerId        String?         @map("trainer_id") @db.Uuid // Reference to trainer user
+  type             AttendanceType  @default(GYM)
+  status           AttendanceStatus @default(CHECKED_IN)
+  checkInTime      DateTime        @map("check_in_time")
+  checkOutTime     DateTime?       @map("check_out_time")
+  duration         Int?            // Duration in minutes
+  checkInMethod    CheckInMethod   @map("check_in_method")
+  checkOutMethod   CheckInMethod?  @map("check_out_method")
+  ipAddress        String?         @map("ip_address")
+  deviceInfo       String?         @map("device_info")
+  location         String?         // GPS coordinates or area within gym
+  temperature      Float?          // Body temperature if required
+  notes            String?
+  staffNotes       String?         @map("staff_notes")
+  checkedInBy      String?         @map("checked_in_by") @db.Uuid // Staff member who checked in
+  checkedOutBy     String?         @map("checked_out_by") @db.Uuid // Staff member who checked out
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@map("attendances")
+  @@index([userId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([subscriptionId])
+  @@index([classId])
+  @@index([trainerId])
+  @@index([checkInTime])
+  @@index([status])
+  @@index([type])
+}
+
+model ClassSchedule {
+  id              String           @id @default(uuid()) @db.Uuid
+  companyId       String           @map("company_id") @db.Uuid // Reference to company service
+  branchId        String           @map("branch_id") @db.Uuid // Reference to company service
+  trainerId       String           @map("trainer_id") @db.Uuid // Reference to trainer user
+  className       String           @map("class_name") @db.VarChar(255)
+  description     String?
+  category        String?          @db.VarChar(100)
+  startTime       DateTime         @map("start_time")
+  endTime         DateTime         @map("end_time")
+  duration        Int              // Duration in minutes
+  maxCapacity     Int              @map("max_capacity")
+  currentCapacity Int              @default(0) @map("current_capacity")
+  roomNumber      String?          @map("room_number") @db.VarChar(50)
+  equipmentNeeded String[]         @map("equipment_needed")
+  level           String?          @db.VarChar(50) // beginner, intermediate, advanced
+  isRecurring     Boolean          @default(false) @map("is_recurring")
+  recurringType   String?          @map("recurring_type") @db.VarChar(20) // daily, weekly, monthly
+  recurringDays   Int[]            @map("recurring_days") // 0-6 for Sunday-Saturday
+  recurringEndDate DateTime?       @map("recurring_end_date")
+  price           Float?           // Price if different from package
+  isCancelled     Boolean          @default(false) @map("is_cancelled")
+  cancellationReason String?       @map("cancellation_reason")
+  cancelledAt     DateTime?        @map("cancelled_at")
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  bookings        ClassBooking[]
+  attendances     ClassAttendance[]
+
+  @@map("class_schedules")
+  @@index([companyId])
+  @@index([branchId])
+  @@index([trainerId])
+  @@index([startTime])
+  @@index([isRecurring])
+  @@index([isCancelled])
+}
+
+model ClassBooking {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid // Reference to auth service user
+  classId      String              @map("class_id") @db.Uuid
+  bookingDate  DateTime            @default(now()) @map("booking_date")
+  status       ClassBookingStatus  @default(CONFIRMED)
+  paymentStatus PaymentStatus      @default(PENDING) @map("payment_status")
+  amount       Float?
+  notes        String?
+  bookedBy     String?             @map("booked_by") @db.Uuid // Staff member if booked by staff
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  class        ClassSchedule       @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, classId])
+  @@map("class_bookings")
+  @@index([userId])
+  @@index([classId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model ClassAttendance {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid // Reference to auth service user
+  classId      String              @map("class_id") @db.Uuid
+  bookingId    String?             @map("booking_id") @db.Uuid
+  attendanceDate DateTime          @default(now()) @map("attendance_date")
+  status       ClassAttendanceStatus @default(PRESENT)
+  checkInTime  DateTime?           @map("check_in_time")
+  checkOutTime DateTime?           @map("check_out_time")
+  rating       Int?                // 1-5 rating for the class
+  feedback     String?
+  notes        String?
+  markedBy     String?             @map("marked_by") @db.Uuid // Staff/trainer who marked attendance
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  class        ClassSchedule       @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, classId])
+  @@map("class_attendances")
+  @@index([userId])
+  @@index([classId])
+  @@index([bookingId])
+  @@index([attendanceDate])
+  @@index([status])
+}
+
+model GymAccess {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid // Reference to auth service user
+  companyId   String    @map("company_id") @db.Uuid // Reference to company service
+  branchId    String    @map("branch_id") @db.Uuid // Reference to company service
+  accessDate  DateTime  @default(now()) @map("access_date")
+  entryTime   DateTime  @map("entry_time")
+  exitTime    DateTime? @map("exit_time")
+  duration    Int?      // Duration in minutes
+  accessPoint String?   @map("access_point") @db.VarChar(100) // Main entrance, side door, etc.
+  method      CheckInMethod
+  deviceId    String?   @map("device_id") // RFID reader, turnstile, etc.
+  ipAddress   String?   @map("ip_address")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("gym_access")
+  @@index([userId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([accessDate])
+  @@index([entryTime])
+}
+
+// Additional Enums
+enum ClassBookingStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+  WAITLISTED
+  NO_SHOW
+}
+
+enum ClassAttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEFT_EARLY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL
+} 

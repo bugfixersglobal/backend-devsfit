@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Purchase Flow Database Schema
+model Purchase {
+  id                String   @id @default(cuid())
+  packageId         String   @map("package_id")
+  billingCycle      String   @map("billing_cycle") // MONTHLY, YEARLY
+  couponCode        String?  @map("coupon_code")
+  
+  // Business Information
+  businessName      String   @map("business_name")
+  businessType      String   @map("business_type") // PERSONAL, CORPORATE
+  businessEmail     String   @map("business_email")
+  businessMobile    String   @map("business_mobile")
+  businessAddress   String   @map("business_address")
+  businessCity      String   @map("business_city")
+  businessZip       String   @map("business_zip")
+  businessWebsite   String?  @map("business_website")
+  
+  // Personal Information
+  personalFirstName String   @map("personal_first_name")
+  personalLastName  String   @map("personal_last_name")
+  personalEmail     String   @map("personal_email")
+  personalPhone     String   @map("personal_phone")
+  
+  // Pricing Information
+  subtotal          Float
+  discount          Float    @default(0)
+  tax               Float
+  total             Float
+  currency          String   @default("BDT")
+  
+  // Status and Tracking
+  status            String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED, CANCELLED
+  error             String?
+  
+  // Created Entities (after successful payment)
+  companyId         String?  @map("company_id")
+  userId            String?  @map("user_id")
+  subscriptionId    String?  @map("subscription_id")
+  paymentId         String?  @map("payment_id")
+  
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+  
+  @@map("purchases")
+}
+
+// Company entity (created after successful payment)
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // PERSONAL, CORPORATE
+  email     String
+  mobile    String
+  address   String
+  city      String
+  zip       String
+  website   String?
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("companies")
+}
+
+// User entity (created after successful payment)
+model User {
+  id        String   @id @default(cuid())
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String   @unique
+  phone     String
+  companyId String   @map("company_id")
+  role      String   @default("OWNER") // OWNER, ADMIN, STAFF
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("users")
+}
+
+// Subscription entity (created after successful payment)
+model Subscription {
+  id           String   @id @default(cuid())
+  companyId    String   @map("company_id")
+  packageId    String   @map("package_id")
+  billingCycle String   @map("billing_cycle") // MONTHLY, YEARLY
+  status       String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  startDate    DateTime @default(now()) @map("start_date")
+  endDate      DateTime @map("end_date")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  @@map("subscriptions")
+}

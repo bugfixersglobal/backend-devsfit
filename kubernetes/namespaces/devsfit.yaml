@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devsfit
+  labels:
+    name: devsfit
+    environment: production

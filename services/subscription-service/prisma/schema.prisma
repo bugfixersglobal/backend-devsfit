@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// SUBSCRIPTION MANAGEMENT
+// ===================
+
+model CompanySubscription {
+  id                String   @id @default(uuid())
+  companyId         String
+  packageId         String
+  subscriptionNumber String  @unique
+  status            SubscriptionStatus @default(TRIAL)
+  billingCycle      BillingCycle @default(MONTHLY)
+  
+  // Period Management
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialStart         DateTime?
+  trialEnd           DateTime?
+  
+  // Financial Information
+  baseAmount         Decimal  @db.Decimal(10, 2)
+  discountAmount     Decimal  @db.Decimal(10, 2) @default(0)
+  totalAmount        Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD")
+  
+  // Usage Tracking
+  currentBranches    Int      @default(0)
+  currentUsers       Int      @default(0)
+  currentMembers     Int      @default(0)
+  currentStaff       Int      @default(0)
+  storageUsed        Decimal  @db.Decimal(10, 2) @default(0)
+  apiCallsUsed       Int      @default(0)
+  
+  // Billing & Renewal
+  autoRenew          Boolean  @default(true)
+  nextBillingDate    DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  cancelledAt        DateTime?
+  cancellationReason String?
+  
+  // Metadata
+  notes              String?
+  internalNotes      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  // Relations
+  upgradeHistory     SubscriptionUpgrade[]
+  
+  @@map("company_subscriptions")
+}
+
+model SubscriptionUpgrade {
+  id                String   @id @default(uuid())
+  subscriptionId    String
+  fromPackageId     String
+  toPackageId       String
+  upgradeType       UpgradeType
+  reason            String?
+  processedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  subscription      CompanySubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@map("subscription_upgrades")
+}
+
+model UsageTracking {
+  id                String   @id @default(uuid())
+  subscriptionId    String
+  companyId         String
+  trackingDate      DateTime
+  metricType        UsageMetricType
+  metricValue       Decimal  @db.Decimal(10, 2)
+  limitValue        Decimal? @db.Decimal(10, 2)
+  percentageUsed    Decimal? @db.Decimal(5, 2)
+  createdAt         DateTime @default(now())
+  
+  @@map("usage_tracking")
+}
+
+model SubscriptionAnalytics {
+  id                String   @id @default(uuid())
+  companyId         String
+  subscriptionId    String
+  date              DateTime
+  metrics           Json
+  createdAt         DateTime @default(now())
+  
+  @@map("subscription_analytics")
+}
+
+// ===================
+// ENUMS
+// ===================
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  LIFETIME
+}
+
+enum UpgradeType {
+  UPGRADE
+  DOWNGRADE
+  SIDE_GRADE
+}
+
+enum UsageMetricType {
+  BRANCHES
+  USERS
+  MEMBERS
+  STAFF
+  STORAGE
+  API_CALLS
+}

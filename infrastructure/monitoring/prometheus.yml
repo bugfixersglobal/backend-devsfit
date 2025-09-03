@@ -1,0 +1,167 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'devsfit-dev'
+    replica: 'prometheus-1'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # API Gateway Service
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3000']
+        labels:
+          service: 'api-gateway'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:3000']
+        labels:
+          service: 'auth-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:3000']
+        labels:
+          service: 'user-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # Company Service
+  - job_name: 'company-service'
+    static_configs:
+      - targets: ['company-service:3030']
+        labels:
+          service: 'company-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # Package Service
+  - job_name: 'package-service'
+    static_configs:
+      - targets: ['package-service:3000']
+        labels:
+          service: 'package-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # Attendance Service
+  - job_name: 'attendance-service'
+    static_configs:
+      - targets: ['attendance-service:3000']
+        labels:
+          service: 'attendance-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:3000']
+        labels:
+          service: 'payment-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+
+  # Report Service
+  - job_name: 'report-service'
+    static_configs:
+      - targets: ['report-service:3000']
+        labels:
+          service: 'report-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # File Service
+  - job_name: 'file-service'
+    static_configs:
+      - targets: ['file-service:3000']
+        labels:
+          service: 'file-service'
+          environment: 'development'
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    scrape_timeout: 5s
+
+  # PostgreSQL Databases  
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'postgresql'
+          environment: 'development'
+    scrape_interval: 30s
+
+  # Redis
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+          environment: 'development'
+    scrape_interval: 30s
+
+  # RabbitMQ
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'
+          environment: 'development'
+    scrape_interval: 30s
+
+  # Node Exporter (System metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'system'
+          environment: 'development'
+    scrape_interval: 30s
+
+  # cAdvisor (Container metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: 'containers'
+          environment: 'development'
+    scrape_interval: 30s 

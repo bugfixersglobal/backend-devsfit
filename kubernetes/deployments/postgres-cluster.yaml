@@ -1,0 +1,191 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-primary
+  namespace: devsfit
+  labels:
+    app: postgres-primary
+    tier: database
+spec:
+  serviceName: postgres-primary
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-primary
+  template:
+    metadata:
+      labels:
+        app: postgres-primary
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-password
+        - name: POSTGRES_DB
+          value: "devsfit_primary"
+        - name: POSTGRES_MAX_CONNECTIONS
+          value: "200"
+        - name: POSTGRES_SHARED_BUFFERS
+          value: "256MB"
+        - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+          value: "1GB"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-config
+          mountPath: /etc/postgresql/postgresql.conf
+          subPath: postgresql.conf
+        command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+      volumes:
+      - name: postgres-config
+        configMap:
+          name: postgres-config
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "fast-ssd"
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-primary
+  namespace: devsfit
+  labels:
+    app: postgres-primary
+spec:
+  selector:
+    app: postgres-primary
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: devsfit
+  labels:
+    app: pgbouncer
+    tier: database
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+        tier: database
+    spec:
+      containers:
+      - name: pgbouncer
+        image: pgbouncer/pgbouncer:latest
+        ports:
+        - containerPort: 6432
+        env:
+        - name: DATABASES_HOST
+          value: "postgres-primary"
+        - name: DATABASES_PORT
+          value: "5432"
+        - name: DATABASES_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-user
+        - name: DATABASES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-password
+        - name: DATABASES_DBNAME
+          value: "*"
+        - name: POOL_MODE
+          value: "transaction"
+        - name: MAX_CLIENT_CONN
+          value: "1000"
+        - name: DEFAULT_POOL_SIZE
+          value: "25"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: devsfit
+  labels:
+    app: pgbouncer
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+  - name: pgbouncer
+    port: 6432
+    targetPort: 6432
+  type: ClusterIP

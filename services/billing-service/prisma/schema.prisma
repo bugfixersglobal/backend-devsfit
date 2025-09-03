@@ -1,0 +1,253 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// BILLING MANAGEMENT
+// ===================
+
+model Invoice {
+  id                String   @id @default(uuid())
+  invoiceNumber     String   @unique
+  companyId         String
+  subscriptionId    String?
+  packageId         String?
+  
+  // Invoice Details
+  status            InvoiceStatus @default(DRAFT)
+  type              InvoiceType @default(SUBSCRIPTION)
+  issueDate         DateTime
+  dueDate           DateTime
+  
+  // Financial Information
+  subtotal          Decimal  @db.Decimal(10, 2)
+  taxAmount         Decimal  @db.Decimal(10, 2) @default(0)
+  discountAmount    Decimal  @db.Decimal(10, 2) @default(0)
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  
+  // Billing Information
+  billingAddress    Json?
+  shippingAddress   Json?
+  notes             String?
+  terms             String?
+  
+  // Payment Information
+  paymentMethod     String?
+  paymentStatus     PaymentStatus @default(PENDING)
+  paidAt            DateTime?
+  paymentReference  String?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  items             InvoiceItem[]
+  payments          InvoicePayment[]
+  
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                String   @id @default(uuid())
+  invoiceId         String
+  description       String
+  quantity          Int      @default(1)
+  unitPrice         Decimal  @db.Decimal(10, 2)
+  taxRate           Decimal  @db.Decimal(5, 4) @default(0)
+  taxAmount         Decimal  @db.Decimal(10, 2) @default(0)
+  discountRate      Decimal  @db.Decimal(5, 4) @default(0)
+  discountAmount    Decimal  @db.Decimal(10, 2) @default(0)
+  totalAmount       Decimal  @db.Decimal(10, 2)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("invoice_items")
+}
+
+model InvoicePayment {
+  id                String   @id @default(uuid())
+  invoiceId         String
+  paymentId         String?
+  amount            Decimal  @db.Decimal(10, 2)
+  paymentMethod     String
+  paymentReference  String?
+  status            PaymentStatus
+  processedAt       DateTime @default(now())
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("invoice_payments")
+}
+
+model Coupon {
+  id                String   @id @default(uuid())
+  code              String   @unique
+  name              String
+  description       String?
+  
+  // Coupon Configuration
+  type              CouponType
+  value             Decimal  @db.Decimal(10, 2)
+  minAmount         Decimal? @db.Decimal(10, 2)
+  maxDiscount       Decimal? @db.Decimal(10, 2)
+  
+  // Usage Limits
+  maxUses           Int?
+  currentUses       Int      @default(0)
+  maxUsesPerUser    Int      @default(1)
+  isOneTime         Boolean  @default(true)
+  
+  // Validity
+  validFrom         DateTime
+  validUntil        DateTime?
+  isActive          Boolean  @default(true)
+  
+  // Applicability
+  applicableOn      ApplicableOnType @default(PACKAGES)
+  applicablePackages Json?
+  applicableMemberships Json?
+  applicableServices Json?
+  
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  usages            CouponUsage[]
+  
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id                String   @id @default(uuid())
+  couponId          String
+  companyId         String
+  invoiceId         String?
+  subscriptionId    String?
+  discountAmount    Decimal  @db.Decimal(10, 2)
+  usedAt            DateTime @default(now())
+  metadata          Json?
+  
+  // Relations
+  coupon            Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  
+  @@map("coupon_usages")
+}
+
+model TaxRate {
+  id                String   @id @default(uuid())
+  country           String
+  state             String?
+  rate              Decimal  @db.Decimal(5, 4)
+  name              String
+  description       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("tax_rates")
+}
+
+model BillingCycle {
+  id                String   @id @default(uuid())
+  companyId         String
+  subscriptionId    String
+  cycleType         BillingCycleType
+  startDate         DateTime
+  endDate           DateTime
+  billingDate       DateTime
+  status            BillingCycleStatus @default(ACTIVE)
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  invoiceId         String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("billing_cycles")
+}
+
+model BillingAnalytics {
+  id                String   @id @default(uuid())
+  companyId         String
+  date              DateTime
+  metrics           Json
+  createdAt         DateTime @default(now())
+  
+  @@map("billing_analytics")
+}
+
+// ===================
+// ENUMS
+// ===================
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum InvoiceType {
+  SUBSCRIPTION
+  ONE_TIME
+  UPGRADE
+  REFUND
+  ADJUSTMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_TRIAL
+}
+
+enum ApplicableOnType {
+  PACKAGES
+  MEMBERSHIPS
+  SERVICES
+  ALL
+}
+
+enum BillingCycleType {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  LIFETIME
+}
+
+enum BillingCycleStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+}

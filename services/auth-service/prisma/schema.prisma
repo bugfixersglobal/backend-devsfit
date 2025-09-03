@@ -1,0 +1,223 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR
+  LOGIN
+}
+
+enum OtpStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  USED
+}
+
+// Models
+model User {
+  id                String       @id @default(uuid()) @db.Uuid
+  firstName         String       @map("first_name") @db.VarChar(100)
+  lastName          String       @map("last_name") @db.VarChar(100)
+  email             String       @unique @db.VarChar(255)
+  phone             String?      @unique @db.VarChar(20)
+  password          String?
+  status            UserStatus   @default(PENDING_VERIFICATION)
+  authProvider      AuthProvider @default(LOCAL) @map("auth_provider")
+  googleId          String?      @map("google_id")
+  emailVerified     Boolean      @default(false) @map("email_verified")
+  phoneVerified     Boolean      @default(false) @map("phone_verified")
+  twoFactorEnabled  Boolean      @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?      @map("two_factor_secret")
+  profilePicture    String?      @map("profile_picture")
+  timezone          String?
+  locale            String?
+  lastLoginAt       DateTime?    @map("last_login_at")
+  lastLoginIp       String?      @map("last_login_ip")
+  loginAttempts     Int          @default(0) @map("login_attempts")
+  lockedUntil       DateTime?    @map("locked_until")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+  otpTokens     OtpToken[]
+  backupCodes   BackupCode[]
+  rateLimitAttempts RateLimitAttempt[]
+
+  @@map("users")
+  @@index([email])
+  @@index([phone])
+}
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(50)
+  description String?   @db.VarChar(255)
+  category    String?   @db.VarChar(50)
+  level       Int?      @default(0)
+  isActive    Boolean   @default(true) @map("is_active")
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+  @@index([name])
+  @@index([category])
+  @@index([level])
+}
+
+model Permission {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  resource    String    @db.VarChar(50)
+  action      String    @db.VarChar(50)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  roles RolePermission[]
+
+  @@map("permissions")
+  @@index([name])
+}
+
+model UserRole {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id               String    @id @default(uuid()) @db.Uuid
+  token            String    @unique
+  userId           String    @map("user_id") @db.Uuid
+  expiresAt        DateTime  @map("expires_at")
+  isRevoked        Boolean   @default(false) @map("is_revoked")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedByIp      String?   @map("revoked_by_ip")
+  replacedByToken  String?   @map("replaced_by_token")
+  createdByIp      String?   @map("created_by_ip")
+  userAgent        String?   @map("user_agent")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+  @@index([token])
+  @@index([userId])
+}
+
+model OtpToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  token       String    @db.VarChar(10)
+  userId      String?   @map("user_id") @db.Uuid
+  email       String?
+  phone       String?
+  type        OtpType
+  status      OtpStatus @default(PENDING)
+  expiresAt   DateTime  @map("expires_at")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  verifiedAt  DateTime? @map("verified_at")
+  clientIp    String?   @map("client_ip")
+  userAgent   String?   @map("user_agent")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("otp_tokens")
+  @@index([token])
+  @@index([userId])
+  @@index([type])
+}
+
+model BackupCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  code      String?  @db.VarChar(10) // Keep for backward compatibility
+  codeHash  String   @db.VarChar(255) @map("code_hash") // New hashed version
+  isUsed    Boolean  @default(false) @map("is_used")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("backup_codes")
+  @@index([userId])
+  @@index([codeHash])
+}
+
+model RateLimitAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @db.VarChar(100) // Format: userId:action
+  userId    String   @map("user_id") @db.Uuid
+  action    String   @db.VarChar(50) // e.g., "2fa_totp", "2fa_backup", "login"
+  clientIp  String?  @map("client_ip") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("rate_limit_attempts")
+  @@index([key])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+} 

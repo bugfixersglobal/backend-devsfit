@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+// Models
+model UserProfile {
+  id                String            @id @default(uuid()) @db.Uuid
+  userId            String            @unique @map("user_id") @db.Uuid // Reference to auth service user
+  dateOfBirth       DateTime?         @map("date_of_birth")
+  gender            Gender?
+  phone             String?           @db.VarChar(20)
+  address           String?
+  city              String?           @db.VarChar(100)
+  state             String?           @db.VarChar(100)
+  country           String?           @db.VarChar(100)
+  postalCode        String?           @map("postal_code") @db.VarChar(20)
+  emergencyContact  String?           @map("emergency_contact")
+  emergencyPhone    String?           @map("emergency_phone") @db.VarChar(20)
+  medicalConditions String?           @map("medical_conditions")
+  allergies         String?
+  medications       String?
+  height            Float?            // in cm
+  weight            Float?            // in kg
+  bodyFatPercentage Float?            @map("body_fat_percentage")
+  bloodType         String?           @map("blood_type") @db.VarChar(5)
+  fitnessGoals      String?           @map("fitness_goals")
+  preferredTrainer  String?           @map("preferred_trainer") @db.Uuid
+  joinDate          DateTime          @default(now()) @map("join_date")
+  membershipStatus  MembershipStatus  @default(ACTIVE) @map("membership_status")
+  notes             String?
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  measurements BodyMeasurement[]
+  goals        FitnessGoal[]
+
+  @@map("user_profiles")
+  @@index([userId])
+  @@index([membershipStatus])
+}
+
+model BodyMeasurement {
+  id              String      @id @default(uuid()) @db.Uuid
+  userProfileId   String      @map("user_profile_id") @db.Uuid
+  measurementDate DateTime    @default(now()) @map("measurement_date")
+  weight          Float?      // in kg
+  height          Float?      // in cm
+  bodyFat         Float?      @map("body_fat")
+  muscleMass      Float?      @map("muscle_mass")
+  visceralFat     Float?      @map("visceral_fat")
+  bmr             Float?      // Basal Metabolic Rate
+  bmi             Float?      // Body Mass Index
+  chest           Float?      // in cm
+  waist           Float?      // in cm
+  hips            Float?      // in cm
+  thigh           Float?      // in cm
+  arm             Float?      // in cm
+  neck            Float?      // in cm
+  notes           String?
+  recordedBy      String?     @map("recorded_by") @db.Uuid // Trainer/staff who recorded
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@map("body_measurements")
+  @@index([userProfileId])
+  @@index([measurementDate])
+}
+
+model FitnessGoal {
+  id               String    @id @default(uuid()) @db.Uuid
+  userProfileId    String    @map("user_profile_id") @db.Uuid
+  goalType         String    @map("goal_type") @db.VarChar(50) // weight_loss, muscle_gain, strength, endurance
+  description      String
+  targetValue      Float?    @map("target_value")
+  currentValue     Float?    @map("current_value")
+  unit             String?   @db.VarChar(20) // kg, lbs, minutes, reps
+  targetDate       DateTime? @map("target_date")
+  isCompleted      Boolean   @default(false) @map("is_completed")
+  completedDate    DateTime? @map("completed_date")
+  priority         Int       @default(1) // 1-5 scale
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@map("fitness_goals")
+  @@index([userProfileId])
+  @@index([goalType])
+  @@index([isCompleted])
+} 

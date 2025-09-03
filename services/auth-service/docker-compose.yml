@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: auth-service-postgres
+    environment:
+      POSTGRES_DB: devsfit_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "6543:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: auth-service-redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --save 60 1000
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: auth-service
+    ports:
+      - "3020:3020"
+      - "9464:9464"  # Prometheus metrics
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/devsfit_auth
+      - JWT_SECRET=your_jwt_secret
+      - JWT_REFRESH_SECRET=your_jwt_refresh_secret
+      - JAEGER_ENDPOINT=http://jaeger:4318/v1/traces
+      - PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+      - OPENSSL_CONF=/dev/null
+      - PRISMA_SKIP_POSTINSTALL_GENERATE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - auth-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: >
+      sh -c "chmod +x scripts/health-check.sh &&
+             ./scripts/health-check.sh &&
+             npm install --legacy-peer-deps && 
+             export OPENSSL_CONF=/dev/null &&
+             npm run db:generate && 
+             npm run db:push -- --force-reset && 
+             npm run db:seed &&
+             npm run start:dev"
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  auth-network:
+    driver: bridge 

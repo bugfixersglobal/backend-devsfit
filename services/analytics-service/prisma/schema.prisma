@@ -1,0 +1,250 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// ANALYTICS EVENTS
+// ===================
+
+model AnalyticsEvent {
+  id                String   @id @default(uuid())
+  eventType         String
+  eventName         String
+  companyId         String?
+  userId            String?
+  sessionId         String?
+  source            String   // Which service generated the event
+  category          String   // Event category (user, business, system)
+  data              Json     // Event-specific data
+  metadata          Json?    // Additional metadata
+  timestamp         DateTime @default(now())
+  processed         Boolean  @default(false)
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("analytics_events")
+  @@index([eventType, timestamp])
+  @@index([companyId, timestamp])
+  @@index([userId, timestamp])
+  @@index([source, timestamp])
+}
+
+// ===================
+// BUSINESS METRICS
+// ===================
+
+model BusinessMetrics {
+  id                String   @id @default(uuid())
+  companyId         String
+  metricType        String   // revenue, users, subscriptions, etc.
+  metricName        String   // specific metric name
+  value             Decimal  @db.Decimal(15, 4)
+  unit              String?  // currency, count, percentage, etc.
+  period            String   // daily, weekly, monthly, yearly
+  periodStart       DateTime
+  periodEnd         DateTime
+  comparisonValue   Decimal? @db.Decimal(15, 4) // For period-over-period comparison
+  changePercentage  Decimal? @db.Decimal(5, 2)
+  trend             String?  // up, down, stable
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("business_metrics")
+  @@index([companyId, metricType, periodStart])
+  @@index([metricType, periodStart])
+}
+
+// ===================
+// USER ANALYTICS
+// ===================
+
+model UserAnalytics {
+  id                String   @id @default(uuid())
+  userId            String
+  companyId         String?
+  sessionId         String?
+  pageViews         Int      @default(0)
+  timeSpent         Int      @default(0) // in seconds
+  actions           Json?    // User actions performed
+  deviceInfo        Json?    // Device and browser information
+  location          Json?    // Geographic location
+  referrer          String?
+  utmSource         String?
+  utmMedium         String?
+  utmCampaign       String?
+  sessionStart      DateTime
+  sessionEnd        DateTime?
+  isActive          Boolean  @default(true)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("user_analytics")
+  @@index([userId, sessionStart])
+  @@index([companyId, sessionStart])
+}
+
+// ===================
+// PERFORMANCE METRICS
+// ===================
+
+model PerformanceMetrics {
+  id                String   @id @default(uuid())
+  serviceName       String
+  endpoint          String?
+  method            String?
+  responseTime      Int      // in milliseconds
+  statusCode        Int?
+  success           Boolean
+  errorMessage      String?
+  requestSize       Int?     // in bytes
+  responseSize      Int?     // in bytes
+  timestamp         DateTime @default(now())
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("performance_metrics")
+  @@index([serviceName, timestamp])
+  @@index([endpoint, timestamp])
+}
+
+// ===================
+// REVENUE ANALYTICS
+// ===================
+
+model RevenueAnalytics {
+  id                String   @id @default(uuid())
+  companyId         String?
+  revenueType       String   // subscription, one-time, upgrade, etc.
+  amount            Decimal  @db.Decimal(15, 4)
+  currency          String   @default("USD")
+  period            String   // daily, weekly, monthly, yearly
+  periodStart       DateTime
+  periodEnd         DateTime
+  subscriptionCount Int?
+  newSubscriptions  Int?
+  cancellations     Int?
+  churnRate         Decimal? @db.Decimal(5, 2)
+  mrr               Decimal? @db.Decimal(15, 4) // Monthly Recurring Revenue
+  arr               Decimal? @db.Decimal(15, 4) // Annual Recurring Revenue
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("revenue_analytics")
+  @@index([companyId, periodStart])
+  @@index([revenueType, periodStart])
+}
+
+// ===================
+// FEATURE USAGE
+// ===================
+
+model FeatureUsage {
+  id                String   @id @default(uuid())
+  companyId         String?
+  userId            String?
+  featureName       String
+  featureCategory   String?
+  usageCount        Int      @default(0)
+  usageDuration     Int?     // in seconds
+  lastUsed          DateTime
+  period            String   // daily, weekly, monthly
+  periodStart       DateTime
+  periodEnd         DateTime
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("feature_usage")
+  @@index([companyId, featureName, periodStart])
+  @@index([userId, featureName, periodStart])
+}
+
+// ===================
+// DASHBOARD CONFIGURATIONS
+// ===================
+
+model DashboardConfig {
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  companyId         String?
+  userId            String?
+  isPublic          Boolean  @default(false)
+  isDefault         Boolean  @default(false)
+  layout            Json     // Dashboard layout configuration
+  widgets           Json     // Widget configurations
+  filters           Json?    // Default filters
+  refreshInterval   Int?     // in seconds
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("dashboard_configs")
+  @@index([companyId, userId])
+}
+
+// ===================
+// REPORT TEMPLATES
+// ===================
+
+model ReportTemplate {
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  category          String
+  isActive          Boolean  @default(true)
+  query             String   // SQL query or query configuration
+  parameters        Json?    // Query parameters
+  schedule          Json?    // Scheduling configuration
+  recipients        Json?    // Email recipients
+  format            String   @default("PDF") // PDF, CSV, JSON
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("report_templates")
+  @@index([category, isActive])
+}
+
+// ===================
+// DATA EXPORTS
+// ===================
+
+model DataExport {
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  companyId         String?
+  userId            String?
+  exportType        String   // analytics, metrics, events, etc.
+  status            ExportStatus @default(PENDING)
+  format            String   @default("CSV")
+  filePath          String?
+  fileSize          Int?
+  downloadUrl       String?
+  expiresAt         DateTime?
+  filters           Json?    // Export filters
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@map("data_exports")
+  @@index([companyId, status])
+  @@index([userId, status])
+}
+
+// ===================
+// ENUMS
+// ===================
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}

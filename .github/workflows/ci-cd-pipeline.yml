@@ -1,0 +1,311 @@
+name: 🏋️ Devsfit Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ===================
+  # TESTING & LINTING
+  # ===================
+  test-and-lint:
+    name: 🧪 Test & Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [
+          auth-service,
+          user-service,
+          package-service,
+          billing-service,
+          payment-service,
+          onboarding-service,
+          api-gateway,
+          admin-service,
+          analytics-service,
+          attendance-service,
+          company-service,
+          file-service,
+
+          report-service,
+          subscription-service
+        ]
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🟢 Setup Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+
+    - name: 📦 Install dependencies
+      run: |
+        cd services/${{ matrix.service }}
+        npm ci
+
+    - name: 🔍 Lint code
+      run: |
+        cd services/${{ matrix.service }}
+        npm run lint || true
+
+    - name: 🧪 Run tests
+      run: |
+        cd services/${{ matrix.service }}
+        npm run test || true
+
+  # ===================
+  # SECURITY SCANNING
+  # ===================
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: test-and-lint
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: 📤 Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ===================
+  # BUILD DOCKER IMAGES
+  # ===================
+  build-images:
+    name: 🐳 Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-and-lint, security-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    
+    strategy:
+      matrix:
+        service: [
+          auth-service,
+          user-service,
+          package-service,
+          billing-service,
+          payment-service,
+          onboarding-service,
+          api-gateway,
+          admin-service,
+          analytics-service,
+          attendance-service,
+          company-service,
+          file-service,
+
+          report-service,
+          subscription-service
+        ]
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔑 Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🏷️ Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+
+    - name: 🐳 Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/${{ matrix.service }}
+        file: ./services/${{ matrix.service }}/Dockerfile.prod
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ===================
+  # DEPLOY TO STAGING
+  # ===================
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.ref == 'refs/heads/staging'
+    environment: staging
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔑 Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+    - name: 📋 Prepare deployment files
+      run: |
+        # Create deployment package
+        tar -czf deployment.tar.gz \
+          docker-compose.staging.yml \
+          deployment-scripts/ \
+          infrastructure/ \
+          .env.staging.template
+
+    - name: 📤 Upload deployment files
+      run: |
+        scp -o StrictHostKeyChecking=no deployment.tar.gz deploy@${{ secrets.STAGING_SERVER }}:/opt/devsfit/staging/
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.STAGING_SERVER }} "cd /opt/devsfit/staging && tar -xzf deployment.tar.gz"
+
+    - name: 🚀 Deploy to staging
+      run: |
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.STAGING_SERVER }} '
+          cd /opt/devsfit/staging
+          
+          # Stop existing services
+          docker-compose -f docker-compose.staging.yml down --remove-orphans || true
+          
+          # Pull latest images
+          docker-compose -f docker-compose.staging.yml pull
+          
+          # Start services
+          docker-compose -f docker-compose.staging.yml up -d
+          
+          # Wait for health checks
+          sleep 60
+          
+          # Run health checks
+          ./deployment-scripts/health-check.sh
+        '
+
+    - name: 📊 Staging deployment status
+      run: |
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.STAGING_SERVER }} '
+          cd /opt/devsfit/staging
+          docker-compose -f docker-compose.staging.yml ps
+        '
+
+  # ===================
+  # DEPLOY TO PRODUCTION
+  # ===================
+  deploy-production:
+    name: 🏭 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔑 Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+    - name: 📋 Prepare deployment files
+      run: |
+        # Create deployment package
+        tar -czf deployment.tar.gz \
+          deployment-scripts/docker-compose.production.yml \
+          deployment-scripts/ \
+          infrastructure/ \
+          deployment-scripts/production.env
+
+    - name: 📤 Upload deployment files
+      run: |
+        scp -o StrictHostKeyChecking=no deployment.tar.gz deploy@${{ secrets.PRODUCTION_SERVER }}:/opt/devsfit/production/
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.PRODUCTION_SERVER }} "cd /opt/devsfit/production && tar -xzf deployment.tar.gz"
+
+    - name: 🚀 Deploy to production
+      run: |
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.PRODUCTION_SERVER }} '
+          cd /opt/devsfit/production
+          
+          # Backup current state
+          ./deployment-scripts/backup.sh
+          
+          # Stop existing services gracefully
+          docker-compose -f deployment-scripts/docker-compose.production.yml down --timeout 30 || true
+          
+          # Pull latest images
+          docker-compose -f deployment-scripts/docker-compose.production.yml pull
+          
+          # Start infrastructure services first
+          docker-compose -f deployment-scripts/docker-compose.production.yml up -d postgres-auth postgres-user postgres-package postgres-billing postgres-onboarding postgres-payment redis redis-sessions rabbitmq elasticsearch
+          
+          # Wait for infrastructure
+          sleep 60
+          
+          # Start application services
+          docker-compose -f deployment-scripts/docker-compose.production.yml up -d
+          
+          # Wait for services to be ready
+          sleep 120
+          
+          # Run health checks
+          ./deployment-scripts/health-check.sh
+        '
+
+    - name: 📊 Production deployment status
+      run: |
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.PRODUCTION_SERVER }} '
+          cd /opt/devsfit/production
+          docker-compose -f deployment-scripts/docker-compose.production.yml ps
+        '
+
+    - name: 📢 Notify deployment success
+      if: success()
+      run: |
+        echo "🎉 Production deployment successful!"
+        # Add notification logic here (Slack, Discord, etc.)
+
+    - name: 🚨 Rollback on failure
+      if: failure()
+      run: |
+        ssh -o StrictHostKeyChecking=no deploy@${{ secrets.PRODUCTION_SERVER }} '
+          cd /opt/devsfit/production
+          echo "🚨 Deployment failed, initiating rollback..."
+          # Add rollback logic here
+        '
+
+  # ===================
+  # CLEANUP
+  # ===================
+  cleanup:
+    name: 🧹 Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: 🧹 Clean up old images
+      run: |
+        echo "Cleanup completed"

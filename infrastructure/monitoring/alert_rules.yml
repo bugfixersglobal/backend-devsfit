@@ -1,0 +1,72 @@
+groups:
+  - name: microservices.rules
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Service {{ $labels.service }} has error rate above 10% for 5 minutes"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "Service {{ $labels.service }} 95th percentile response time > 1s"
+
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.service }} is down for more than 1 minute"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.name }} memory usage > 80%"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: (rate(container_cpu_usage_seconds_total[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Container {{ $labels.name }} CPU usage > 80%"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionHigh
+        expr: database_connections_active / database_connections_max > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections"
+          description: "Database connections > 80% of maximum"
+
+      # Queue Size Alert
+      - alert: HighQueueSize
+        expr: rabbitmq_queue_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue size"
+          description: "RabbitMQ queue {{ $labels.queue }} has > 1000 messages" 

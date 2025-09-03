@@ -1,0 +1,134 @@
+groups:
+- name: service.rules
+  rules:
+  - alert: ServiceDown
+    expr: up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Service {{ $labels.job }} is down"
+      description: "{{ $labels.job }} service has been down for more than 1 minute."
+
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate on {{ $labels.job }}"
+      description: "{{ $labels.job }} has error rate above 5% for 5 minutes."
+
+  - alert: HighResponseTime
+    expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High response time on {{ $labels.job }}"
+      description: "{{ $labels.job }} 95th percentile response time is above 1 second."
+
+  - alert: HighMemoryUsage
+    expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High memory usage on {{ $labels.name }}"
+      description: "{{ $labels.name }} memory usage is above 80%."
+
+  - alert: HighCPUUsage
+    expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage on {{ $labels.name }}"
+      description: "{{ $labels.name }} CPU usage is above 80%."
+
+- name: database.rules
+  rules:
+  - alert: PostgreSQLDown
+    expr: pg_up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "PostgreSQL is down"
+      description: "PostgreSQL database is down for more than 1 minute."
+
+  - alert: PostgreSQLTooManyConnections
+    expr: sum(pg_stat_database_numbackends) by (instance) > 180
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "PostgreSQL too many connections"
+      description: "PostgreSQL has {{ $value }} connections, which is close to the limit."
+
+  - alert: PostgreSQLSlowQueries
+    expr: rate(pg_stat_database_tup_returned[5m]) / rate(pg_stat_database_tup_fetched[5m]) < 0.1
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "PostgreSQL slow queries detected"
+      description: "PostgreSQL query efficiency is below 10%."
+
+- name: redis.rules
+  rules:
+  - alert: RedisDown
+    expr: redis_up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Redis is down"
+      description: "Redis instance is down for more than 1 minute."
+
+  - alert: RedisHighMemoryUsage
+    expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis high memory usage"
+      description: "Redis memory usage is above 90%."
+
+  - alert: RedisHighConnections
+    expr: redis_connected_clients > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis high connection count"
+      description: "Redis has {{ $value }} connections, which is unusually high."
+
+- name: business.rules
+  rules:
+  - alert: HighFailedLogins
+    expr: increase(auth_login_failures_total[5m]) > 50
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High number of failed login attempts"
+      description: "There have been {{ $value }} failed login attempts in the last 5 minutes."
+
+  - alert: PaymentFailures
+    expr: increase(payment_failures_total[5m]) > 10
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High payment failure rate"
+      description: "{{ $value }} payment failures in the last 5 minutes."
+
+  - alert: LowActiveUsers
+    expr: active_users_count < 10
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Low active user count"
+      description: "Only {{ $value }} active users, which is unusually low."
