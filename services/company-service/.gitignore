@@ -99,5 +99,4 @@ docker-compose*.yml
 .husky/
 .prettierrc
 .eslintrc*
-tsconfig.json
 nest-cli.json
