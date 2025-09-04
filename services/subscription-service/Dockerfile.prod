@@ -12,6 +12,12 @@ COPY package*.json ./
 # Install dependencies (including dev dependencies for build)
 RUN npm ci --legacy-peer-deps --ignore-scripts
 
+# Copy Prisma schema if it exists
+COPY prisma ./prisma
+
+# Generate Prisma client
+RUN npx prisma generate
+
 # Copy source code
 COPY . .
 
@@ -36,6 +42,10 @@ COPY package*.json ./
 # Install production dependencies only
 RUN npm ci --only=production --legacy-peer-deps --ignore-scripts && \
     npm cache clean --force
+
+# Copy Prisma schema and generated client
+COPY prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
