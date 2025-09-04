@@ -91,6 +91,12 @@ scripts
 *.md
 !README.md
 
+# Explicitly include source code
+!src/
+
+# Explicitly include Prisma schema
+!prisma/
+
 # Docker
 Dockerfile*
 docker-compose*.yml
