@@ -69,11 +69,11 @@ services:
     networks:
       - devsfit-staging-network
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f rabbitmq"]
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
     deploy:
       resources:
         limits:
