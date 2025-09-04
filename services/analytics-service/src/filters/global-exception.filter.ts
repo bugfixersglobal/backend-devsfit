@@ -66,9 +66,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return exception.getStatus();
     }
 
-    // Handle Prisma errors
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (exception.code) {
+    // Handle Prisma errors (simplified)
+    if (exception && typeof exception === 'object' && 'code' in exception) {
+      const prismaError = exception as any;
+      switch (prismaError.code) {
         case 'P2002':
           return HttpStatus.CONFLICT;
         case 'P2025':
@@ -80,14 +81,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
-    if (exception instanceof Prisma.PrismaClientValidationError) {
-      return HttpStatus.BAD_REQUEST;
-    }
-
-    if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
-      return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
-
     return HttpStatus.INTERNAL_SERVER_ERROR;
   }
 
@@ -96,9 +89,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return exception.message;
     }
 
-    // Handle Prisma errors
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (exception.code) {
+    // Handle Prisma errors (simplified)
+    if (exception && typeof exception === 'object' && 'code' in exception) {
+      const prismaError = exception as any;
+      switch (prismaError.code) {
         case 'P2002':
           return 'Resource already exists';
         case 'P2025':
@@ -110,14 +104,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
-    if (exception instanceof Prisma.PrismaClientValidationError) {
-      return 'Validation error';
-    }
-
-    if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
-      return 'Database error';
-    }
-
     return 'Internal server error';
   }
 
@@ -126,11 +112,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return exception;
     }
 
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+    if (exception && typeof exception === 'object' && 'code' in exception) {
+      const prismaError = exception as any;
       return {
-        code: exception.code,
-        meta: exception.meta,
-        clientVersion: exception.clientVersion,
+        code: prismaError.code,
+        meta: prismaError.meta,
+        clientVersion: prismaError.clientVersion,
       };
     }
 
