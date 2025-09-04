@@ -38,8 +38,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma
 
-# Install production dependencies only
-RUN npm ci --only=production --legacy-peer-deps && \
+# Install production dependencies only (skip postinstall scripts)
+RUN npm ci --only=production --legacy-peer-deps --ignore-scripts && \
     npm cache clean --force
 
 # Copy built application from builder stage
