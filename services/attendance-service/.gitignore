@@ -77,7 +77,6 @@ keys/
 *.key
 
 # Prisma
-prisma/migrations/
 prisma/seed.ts
 
 # Shared directories

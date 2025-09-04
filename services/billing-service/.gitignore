@@ -141,7 +141,6 @@ ehthumbs.db
 Thumbs.db
 
 # Prisma
-prisma/migrations/
 
 # Build outputs
 dist/
