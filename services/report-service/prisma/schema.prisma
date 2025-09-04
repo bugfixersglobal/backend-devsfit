@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// REPORT MANAGEMENT
+// ===================
+
+model Report {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        ReportType
+  category    String
+  
+  // Report configuration
+  template    Json?    // Report template configuration
+  parameters  Json?    // Report parameters
+  filters     Json?    // Report filters
+  
+  // Status
+  status      ReportStatus @default(DRAFT)
+  isPublic    Boolean  @default(false)
+  isScheduled Boolean  @default(false)
+  
+  // Scheduling
+  schedule    Json?    // Cron expression or schedule config
+  lastRun     DateTime?
+  nextRun     DateTime?
+  
+  // Output
+  format      ReportFormat @default(PDF)
+  outputPath  String?
+  outputUrl   String?
+  fileSize    Int?
+  
+  // Ownership
+  userId      String?
+  companyId   String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("reports")
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([status, createdAt])
+  @@index([type, category])
+}
+
+model ReportExecution {
+  id          String   @id @default(uuid())
+  reportId    String
+  executionId String   @unique
+  
+  // Execution details
+  status      ExecutionStatus @default(PENDING)
+  progress    Float    @default(0)
+  startTime   DateTime?
+  endTime     DateTime?
+  duration    Int?     // Duration in milliseconds
+  
+  // Parameters used
+  parameters  Json?
+  filters     Json?
+  
+  // Output
+  outputPath  String?
+  outputUrl   String?
+  fileSize    Int?
+  format      ReportFormat
+  
+  // Error handling
+  error       String?
+  errorDetails Json?
+  
+  // Triggered by
+  triggeredBy String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("report_executions")
+  @@index([reportId, createdAt])
+  @@index([status, createdAt])
+  @@index([executionId])
+}
+
+model ReportTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  
+  // Template configuration
+  template    Json     // Template configuration
+  parameters  Json?    // Default parameters
+  filters     Json?    // Default filters
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isPublic    Boolean  @default(false)
+  
+  // Versioning
+  version     String   @default("1.0.0")
+  
+  // Ownership
+  userId      String?
+  companyId   String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("report_templates")
+  @@index([category, isActive])
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model ReportSchedule {
+  id          String   @id @default(uuid())
+  reportId    String
+  name        String
+  description String?
+  
+  // Schedule configuration
+  cronExpression String?  // Cron expression
+  scheduleConfig Json?     // Advanced schedule configuration
+  
+  // Schedule details
+  frequency   ScheduleFrequency
+  interval    Int?        // Interval value
+  timezone    String      @default("UTC")
+  
+  // Status
+  isActive    Boolean  @default(true)
+  lastRun     DateTime?
+  nextRun     DateTime?
+  
+  // Recipients
+  recipients  Json?     // Email recipients or webhook URLs
+  
+  // Ownership
+  userId      String?
+  companyId   String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("report_schedules")
+  @@index([reportId, isActive])
+  @@index([nextRun, isActive])
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+// ===================
+// ENUMS
+// ===================
+
+enum ReportType {
+  ANALYTICS
+  FINANCIAL
+  OPERATIONAL
+  CUSTOMER
+  INVENTORY
+  PERFORMANCE
+  CUSTOM
+}
+
+enum ReportStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum ReportFormat {
+  PDF
+  EXCEL
+  CSV
+  JSON
+  HTML
+  XML
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ScheduleFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}

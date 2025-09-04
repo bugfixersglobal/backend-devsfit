@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================
+// FILE MANAGEMENT
+// ===================
+
+model File {
+  id          String   @id @default(uuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int      // File size in bytes
+  path        String   // File path on disk
+  url         String?  // Public URL if applicable
+  bucket      String?  // S3 bucket name if using cloud storage
+  key         String?  // S3 key if using cloud storage
+  
+  // Metadata
+  description String?
+  tags        String[] // Array of tags
+  metadata    Json?    // Additional metadata
+  
+  // Ownership
+  userId      String?
+  companyId   String?
+  
+  // Status
+  status      FileStatus @default(ACTIVE)
+  isPublic    Boolean  @default(false)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  @@map("files")
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([status, createdAt])
+}
+
+model FileUpload {
+  id          String   @id @default(uuid())
+  uploadId    String   @unique // Unique upload identifier
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  chunkSize   Int      // Size of each chunk
+  totalChunks Int      // Total number of chunks
+  uploadedChunks Int   @default(0)
+  
+  // Upload status
+  status      UploadStatus @default(PENDING)
+  progress    Float    @default(0) // Progress percentage
+  
+  // Temporary storage
+  tempPath    String?
+  tempChunks  String[] // Array of temporary chunk paths
+  
+  // Metadata
+  metadata    Json?
+  
+  // Ownership
+  userId      String?
+  companyId   String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime // When temporary upload expires
+  
+  @@map("file_uploads")
+  @@index([uploadId])
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+model FileShare {
+  id          String   @id @default(uuid())
+  fileId      String
+  shareToken  String   @unique // Unique share token
+  shareType   ShareType @default(PUBLIC)
+  
+  // Access control
+  password    String?  // Optional password protection
+  maxDownloads Int?    // Maximum number of downloads
+  downloadCount Int    @default(0)
+  
+  // Expiration
+  expiresAt   DateTime?
+  
+  // Created by
+  createdBy   String
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("file_shares")
+  @@index([shareToken])
+  @@index([fileId])
+  @@index([expiresAt])
+}
+
+// ===================
+// ENUMS
+// ===================
+
+enum FileStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum UploadStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ShareType {
+  PUBLIC
+  PRIVATE
+  PASSWORD_PROTECTED
+}
