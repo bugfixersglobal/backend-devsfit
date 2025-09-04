@@ -5,20 +5,20 @@ services:
   # INFRASTRUCTURE SERVICES
   # ===================
   
-  postgres-staging:
+  postgres-production:
     image: postgres:16-alpine
-    container_name: devsfit-postgres-staging
+    container_name: devsfit-postgres-production
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: devsfit_staging
+      POSTGRES_DB: devsfit_production
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - postgres-staging-data:/var/lib/postgresql/data
+      - postgres-production-data:/var/lib/postgresql/data
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d devsfit_staging"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d devsfit_production"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,23 +26,23 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '0.5'
+          memory: 2G
+          cpus: '1.0'
     restart: unless-stopped
 
-  redis-staging:
+  redis-production:
     image: redis:7-alpine
-    container_name: devsfit-redis-staging
+    container_name: devsfit-redis-production
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD:-password}
       --appendonly yes
-      --maxmemory 512mb
+      --maxmemory 1gb
       --maxmemory-policy allkeys-lru
     volumes:
-      - redis-staging-data:/data
+      - redis-production-data:/data
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD:-password}", "ping"]
       interval: 10s
@@ -51,23 +51,23 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
-  rabbitmq-staging:
+  rabbitmq-production:
     image: rabbitmq:3-management-alpine
-    container_name: devsfit-rabbitmq-staging
+    container_name: devsfit-rabbitmq-production
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-password}
     volumes:
-      - rabbitmq-staging-data:/var/lib/rabbitmq
+      - rabbitmq-production-data:/var/lib/rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
@@ -76,40 +76,40 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
   # ===================
   # MICROSERVICES (LOCAL BUILD)
   # ===================
   
-  api-gateway-staging:
+  api-gateway-production:
     build:
       context: ./services/api-gateway
-      dockerfile: Dockerfile.dev
-    container_name: devsfit-api-gateway-staging
+      dockerfile: Dockerfile.prod
+    container_name: devsfit-api-gateway-production
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV=production
       - PORT=3000
-      - REDIS_HOST=redis-staging
+      - REDIS_HOST=redis-production
       - REDIS_PASSWORD=${REDIS_PASSWORD:-password}
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq-staging:5672
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-staging:5432/devsfit_staging
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq-production:5672
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-production:5432/devsfit_production
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
-      - RATE_LIMIT_REDIS_HOST=redis-staging
+      - RATE_LIMIT_REDIS_HOST=redis-production
       - PROMETHEUS_PORT=9090
     depends_on:
-      postgres-staging:
+      postgres-production:
         condition: service_healthy
-      redis-staging:
+      redis-production:
         condition: service_healthy
-      rabbitmq-staging:
+      rabbitmq-production:
         condition: service_healthy
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -119,33 +119,33 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
-  auth-service-staging:
+  auth-service-production:
     build:
       context: ./services/auth-service
-      dockerfile: Dockerfile.dev
-    container_name: devsfit-auth-service-staging
+      dockerfile: Dockerfile.prod
+    container_name: devsfit-auth-service-production
     ports:
-      - "3020:3020"
+      - "3021:3020"
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV=production
       - PORT=3020
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-staging:5432/devsfit_staging
-      - REDIS_HOST=redis-staging
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-production:5432/devsfit_production
+      - REDIS_HOST=redis-production
       - REDIS_PASSWORD=${REDIS_PASSWORD:-password}
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret}
       - PROMETHEUS_PORT=9464
     depends_on:
-      postgres-staging:
+      postgres-production:
         condition: service_healthy
-      redis-staging:
+      redis-production:
         condition: service_healthy
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
       interval: 30s
@@ -155,31 +155,31 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
-  package-service-staging:
+  package-service-production:
     build:
       context: ./services/package-service
-      dockerfile: Dockerfile.dev
-    container_name: devsfit-package-service-staging
+      dockerfile: Dockerfile.prod
+    container_name: devsfit-package-service-production
     ports:
-      - "3003:3003"
+      - "3006:3003"
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV=production
       - PORT=3003
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-staging:5432/devsfit_staging
-      - REDIS_HOST=redis-staging
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-production:5432/devsfit_production
+      - REDIS_HOST=redis-production
       - REDIS_PASSWORD=${REDIS_PASSWORD:-password}
       - PROMETHEUS_PORT=9466
     depends_on:
-      postgres-staging:
+      postgres-production:
         condition: service_healthy
-      redis-staging:
+      redis-production:
         condition: service_healthy
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 30s
@@ -189,31 +189,31 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
-  billing-service-staging:
+  billing-service-production:
     build:
       context: ./services/billing-service
-      dockerfile: Dockerfile.dev
-    container_name: devsfit-billing-service-staging
+      dockerfile: Dockerfile.prod
+    container_name: devsfit-billing-service-production
     ports:
-      - "3004:3004"
+      - "3008:3004"
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV=production
       - PORT=3004
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-staging:5432/devsfit_staging
-      - REDIS_HOST=redis-staging
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-production:5432/devsfit_production
+      - REDIS_HOST=redis-production
       - REDIS_PASSWORD=${REDIS_PASSWORD:-password}
       - PROMETHEUS_PORT=9467
     depends_on:
-      postgres-staging:
+      postgres-production:
         condition: service_healthy
-      redis-staging:
+      redis-production:
         condition: service_healthy
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
       interval: 30s
@@ -223,34 +223,34 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
-  payment-service-staging:
+  payment-service-production:
     build:
       context: ./services/payment-service
-      dockerfile: Dockerfile.dev
-    container_name: devsfit-payment-service-staging
+      dockerfile: Dockerfile.prod
+    container_name: devsfit-payment-service-production
     ports:
-      - "3005:3005"
+      - "3009:3005"
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV=production
       - PORT=3005
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-staging:5432/devsfit_staging
-      - REDIS_HOST=redis-staging
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres-production:5432/devsfit_production
+      - REDIS_HOST=redis-production
       - REDIS_PASSWORD=${REDIS_PASSWORD:-password}
       - SSLCOMMERZ_STORE_ID=${SSLCOMMERZ_STORE_ID:-testbox}
       - SSLCOMMERZ_STORE_PASSWORD=${SSLCOMMERZ_STORE_PASSWORD:-qwerty}
-      - SSLCOMMERZ_SANDBOX=${SSLCOMMERZ_SANDBOX:-true}
+      - SSLCOMMERZ_SANDBOX=${SSLCOMMERZ_SANDBOX:-false}
       - PROMETHEUS_PORT=9468
     depends_on:
-      postgres-staging:
+      postgres-production:
         condition: service_healthy
-      redis-staging:
+      redis-production:
         condition: service_healthy
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
       interval: 30s
@@ -260,29 +260,51 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
   # ===================
-  # MONITORING (STAGING)
+  # MONITORING (PRODUCTION)
   # ===================
   
-  prometheus-staging:
+  prometheus-production:
     image: prom/prometheus:latest
-    container_name: devsfit-prometheus-staging
+    container_name: devsfit-prometheus-production
     ports:
-      - "9091:9090"
+      - "9090:9090"
     volumes:
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-staging-data:/prometheus
+      - prometheus-production-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.time=90d'
       - '--web.enable-lifecycle'
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    restart: unless-stopped
+
+  grafana-production:
+    image: grafana/grafana:latest
+    container_name: devsfit-grafana-production
+    ports:
+      - "3013:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+    volumes:
+      - grafana-production-data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus-production
+    networks:
+      - devsfit-production-network
     deploy:
       resources:
         limits:
@@ -290,63 +312,41 @@ services:
           cpus: '0.5'
     restart: unless-stopped
 
-  grafana-staging:
-    image: grafana/grafana:latest
-    container_name: devsfit-grafana-staging
-    ports:
-      - "3014:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
-    volumes:
-      - grafana-staging-data:/var/lib/grafana
-      - ./infrastructure/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
-    depends_on:
-      - prometheus-staging
-    networks:
-      - devsfit-staging-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.25'
-    restart: unless-stopped
-
-  jaeger-staging:
+  jaeger-production:
     image: jaegertracing/all-in-one:latest
-    container_name: devsfit-jaeger-staging
+    container_name: devsfit-jaeger-production
     ports:
-      - "16687:16686"
-      - "14269:14268"
+      - "16686:16686"
+      - "14268:14268"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     networks:
-      - devsfit-staging-network
+      - devsfit-production-network
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.25'
+          memory: 1G
+          cpus: '0.5'
     restart: unless-stopped
 
 # ===================
-# VOLUMES (STAGING)
+# VOLUMES (PRODUCTION)
 # ===================
 
 volumes:
-  postgres-staging-data:
-  redis-staging-data:
-  rabbitmq-staging-data:
-  prometheus-staging-data:
-  grafana-staging-data:
+  postgres-production-data:
+  redis-production-data:
+  rabbitmq-production-data:
+  prometheus-production-data:
+  grafana-production-data:
 
 # ===================
-# NETWORKS (STAGING)
+# NETWORKS (PRODUCTION)
 # ===================
 
 networks:
-  devsfit-staging-network:
+  devsfit-production-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.22.0.0/16
