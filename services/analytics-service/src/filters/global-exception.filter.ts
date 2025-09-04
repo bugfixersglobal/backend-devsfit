@@ -7,11 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { 
-  PrismaClientKnownRequestError, 
-  PrismaClientValidationError, 
-  PrismaClientUnknownRequestError 
-} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 // Extend Request interface to include user property
 interface RequestWithUser extends Request {
@@ -71,7 +67,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     // Handle Prisma errors
-    if (exception instanceof PrismaClientKnownRequestError) {
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002':
           return HttpStatus.CONFLICT;
@@ -84,11 +80,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
-    if (exception instanceof PrismaClientValidationError) {
+    if (exception instanceof Prisma.PrismaClientValidationError) {
       return HttpStatus.BAD_REQUEST;
     }
 
-    if (exception instanceof PrismaClientUnknownRequestError) {
+    if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
@@ -101,7 +97,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     // Handle Prisma errors
-    if (exception instanceof PrismaClientKnownRequestError) {
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002':
           return 'Resource already exists';
@@ -114,11 +110,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
-    if (exception instanceof PrismaClientValidationError) {
+    if (exception instanceof Prisma.PrismaClientValidationError) {
       return 'Validation error';
     }
 
-    if (exception instanceof PrismaClientUnknownRequestError) {
+    if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
       return 'Database error';
     }
 
@@ -130,7 +126,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return exception;
     }
 
-    if (exception instanceof PrismaClientKnownRequestError) {
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       return {
         code: exception.code,
         meta: exception.meta,
