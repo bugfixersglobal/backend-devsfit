@@ -36,8 +36,11 @@ RUN mkdir -p uploads
 ENV OPENSSL_CONF=/dev/null
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
 
-# Expose port
-EXPOSE 3000
+# Set Node.js memory limit to prevent heap overflow
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Development command with hot reload
+# Expose port
+EXPOSE 3020
+
+# Development command with hot reload and verbose logging
 CMD ["npm", "run", "start:dev"] 

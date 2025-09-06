@@ -98,7 +98,6 @@ scripts
 !prisma/
 
 # Docker
-Dockerfile*
 docker-compose*.yml
 .dockerignore
 
